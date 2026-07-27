@@ -27,10 +27,31 @@ public sealed class GalleryCatalog
         _container = new BlobContainerClient(CreateContainerUri());
     }
 
-    public IReadOnlyList<GallerySummary> Albums => _albums.Values
-        .OrderBy(album => album.Name, StringComparer.CurrentCultureIgnoreCase)
-        .Select(album => new GallerySummary(album.Slug, album.Name, album.CoverThumbnailName, album.Photos.Count))
-        .ToList();
+    public IReadOnlyList<GallerySummary> Albums
+    {
+        get
+        {
+            var albums = _albums.Values
+                .OrderBy(album => album.Name, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
+            var mainAlbum = albums.FirstOrDefault(album => album.Slug.StartsWith("main-", StringComparison.OrdinalIgnoreCase));
+
+            if (mainAlbum is not null)
+            {
+                albums.Remove(mainAlbum);
+                albums.Insert(0, mainAlbum);
+            }
+
+            return albums
+                .Select(album => new GallerySummary(
+                    album.Slug,
+                    album.Name,
+                    album.CoverThumbnailName,
+                    album.Photos.Count,
+                    ReferenceEquals(album, mainAlbum)))
+                .ToList();
+        }
+    }
 
     public GalleryAlbum? Find(string slug) => _albums.GetValueOrDefault(slug);
 
