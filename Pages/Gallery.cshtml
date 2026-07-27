@@ -1,0 +1,35 @@
+@page "/gallery/{slug}"
+@model GalleryModel
+@{
+    ViewData["Title"] = Model.Album.Name;
+}
+<header class="gallery-header">
+    <a class="back" asp-page="/Index" aria-label="Kaikki galleriat">← <span>Kaikki hetket</span></a>
+    <span class="eyebrow">Pieni luku yhteisestä päivästämme</span>
+    <h1>@Model.Album.Name</h1>
+    <div class="flourish" aria-hidden="true">❦</div>
+    <p>@Model.Album.Photos.Count @(Model.Album.Photos.Count == 1 ? "kaunis muisto" : "kaunista muistoa")</p>
+</header>
+<main class="photo-grid" data-gallery>
+    @for (var column = 0; column < 3; column++)
+    {
+        <div class="photo-column">
+            @for (var index = column; index < Model.Album.Photos.Count; index += 3)
+            {
+                var photo = Model.Album.Photos[index];
+                <button class="photo-tile" type="button" data-order="@index" data-full="@Model.PhotoUrl(photo)" data-alt="Häämuisto">
+                    <img src="@Model.ThumbnailUrl(photo)" alt="Häämuisto" loading="lazy" />
+                    <span class="photo-tile__hint">Katso</span>
+                </button>
+            }
+        </div>
+    }
+</main>
+<div class="lightbox" role="dialog" aria-modal="true" aria-label="Täysikokoinen valokuva" hidden>
+    <button class="lightbox__close" aria-label="Sulje valokuva">×</button>
+    <button class="lightbox__previous" aria-label="Edellinen valokuva">‹</button>
+    <img class="lightbox__image" alt="" />
+    <div class="lightbox__loader">Hetki latautuu…</div>
+    <button class="lightbox__next" aria-label="Seuraava valokuva">›</button>
+</div>
+<footer>Kiitos, että olet osa tarinaamme <span>♥</span></footer>

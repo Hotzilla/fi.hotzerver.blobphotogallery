@@ -1,0 +1,33 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Kiitos";
+}
+<header class="hero">
+    <span class="eyebrow">Kaikella rakkaudella</span>
+    <h1>Kiitos</h1>
+    <div class="flourish" aria-hidden="true">❦</div>
+    <p>Kiitos, että juhlit, nauroit ja teit päivästämme unohtumattoman.<br />Tule kulkemaan kanssamme muistojen polulle.</p>
+</header>
+
+<main class="album-list">
+    @if (Model.Albums.Count == 0)
+    {
+        <section class="empty-state">
+            <span>♡</span><h2>Kuvat laittautuvat juhlakuntoon</h2>
+            <p>Palaa pian uudelleen.</p>
+        </section>
+    }
+    @foreach (var album in Model.Albums)
+    {
+        <a class="album-card" asp-page="/Gallery" asp-route-slug="@album.Slug">
+            @if (album.CoverThumbnailName is not null)
+            {
+                <img src="@Model.ThumbnailUrl(album)" alt="" loading="lazy" />
+            }
+            <span class="album-card__wash"></span>
+            <span class="album-card__text"><strong>@album.Name</strong><small>@album.PhotoCount @(album.PhotoCount == 1 ? "muisto" : "muistoa")</small></span>
+        </a>
+    }
+</main>
+<footer>Tehty rakkaudella <span>♥</span></footer>
