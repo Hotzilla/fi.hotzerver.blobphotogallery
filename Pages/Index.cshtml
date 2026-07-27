@@ -20,12 +20,16 @@
     }
     @foreach (var album in Model.Albums)
     {
-        <a class="album-card" asp-page="/Gallery" asp-route-slug="@album.Slug">
+        <a class="album-card @(album.IsMain ? "album-card--main" : "")" asp-page="/Gallery" asp-route-slug="@album.Slug">
             @if (album.CoverThumbnailName is not null)
             {
                 <img src="@Model.ThumbnailUrl(album)" alt="" loading="lazy" />
             }
             <span class="album-card__wash"></span>
+            @if (album.IsMain)
+            {
+                <span class="album-card__featured">Päägalleria <span aria-hidden="true">♥</span></span>
+            }
             <span class="album-card__text"><strong>@album.Name</strong><small>@album.PhotoCount @(album.PhotoCount == 1 ? "muisto" : "muistoa")</small></span>
         </a>
     }
