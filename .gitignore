@@ -1,0 +1,7 @@
+bin/
+obj/
+thumbnail-cache/
+appsettings.Production.json
+.vs/
+.idea/
+*.user
