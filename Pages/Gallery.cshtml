@@ -4,26 +4,26 @@
     ViewData["Title"] = Model.Album.Name;
 }
 <header class="gallery-header">
-    <a class="back" asp-page="/Index" aria-label="All galleries">← <span>All moments</span></a>
-    <span class="eyebrow">A little chapter from our day</span>
+    <a class="back" asp-page="/Index" aria-label="Kaikki galleriat">← <span>Kaikki hetket</span></a>
+    <span class="eyebrow">Pieni luku yhteisestä päivästämme</span>
     <h1>@Model.Album.Name</h1>
     <div class="flourish" aria-hidden="true">❦</div>
-    <p>@Model.Album.Photos.Count beautiful memories</p>
+    <p>@Model.Album.Photos.Count @(Model.Album.Photos.Count == 1 ? "kaunis muisto" : "kaunista muistoa")</p>
 </header>
 <main class="photo-grid" data-gallery>
     @foreach (var photo in Model.Album.Photos)
     {
-        <button class="photo-tile" type="button" data-full="@Model.PhotoUrl(photo)" data-alt="Wedding memory" style="--ratio:@photo.Width/@photo.Height">
-            <img src="@Model.ThumbnailUrl(photo)" alt="Wedding memory" loading="lazy" />
-            <span class="photo-tile__hint">View</span>
+        <button class="photo-tile" type="button" data-full="@Model.PhotoUrl(photo)" data-alt="Häämuisto" style="--ratio:@photo.Width/@photo.Height">
+            <img src="@Model.ThumbnailUrl(photo)" alt="Häämuisto" loading="lazy" />
+            <span class="photo-tile__hint">Katso</span>
         </button>
     }
 </main>
-<div class="lightbox" role="dialog" aria-modal="true" aria-label="Full-size photograph" hidden>
-    <button class="lightbox__close" aria-label="Close photograph">×</button>
-    <button class="lightbox__previous" aria-label="Previous photograph">‹</button>
+<div class="lightbox" role="dialog" aria-modal="true" aria-label="Täysikokoinen valokuva" hidden>
+    <button class="lightbox__close" aria-label="Sulje valokuva">×</button>
+    <button class="lightbox__previous" aria-label="Edellinen valokuva">‹</button>
     <img class="lightbox__image" alt="" />
-    <div class="lightbox__loader">Loading the moment…</div>
-    <button class="lightbox__next" aria-label="Next photograph">›</button>
+    <div class="lightbox__loader">Hetki latautuu…</div>
+    <button class="lightbox__next" aria-label="Seuraava valokuva">›</button>
 </div>
-<footer>Thank you for being part of our story <span>♥</span></footer>
+<footer>Kiitos, että olet osa tarinaamme <span>♥</span></footer>

@@ -41,7 +41,7 @@ public sealed class QueryKeyMiddleware(RequestDelegate next, IOptions<GalleryOpt
 
         context.Response.StatusCode = StatusCodes.Status404NotFound;
         context.Response.ContentType = "text/plain; charset=utf-8";
-        await context.Response.WriteAsync("Gallery not found.");
+        await context.Response.WriteAsync("Galleriaa ei löytynyt.");
     }
 
     private bool Matches(string candidate)
