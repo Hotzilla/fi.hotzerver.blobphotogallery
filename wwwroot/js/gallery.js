@@ -1,5 +1,6 @@
 (() => {
-  const tiles = [...document.querySelectorAll('[data-full]')];
+  const tiles = [...document.querySelectorAll('[data-full]')]
+    .sort((left, right) => Number(left.dataset.order) - Number(right.dataset.order));
   const box = document.querySelector('.lightbox');
   if (!box || !tiles.length) return;
   const image = box.querySelector('.lightbox__image');

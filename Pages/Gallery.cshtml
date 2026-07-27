@@ -11,12 +11,18 @@
     <p>@Model.Album.Photos.Count @(Model.Album.Photos.Count == 1 ? "kaunis muisto" : "kaunista muistoa")</p>
 </header>
 <main class="photo-grid" data-gallery>
-    @foreach (var photo in Model.Album.Photos)
+    @for (var column = 0; column < 3; column++)
     {
-        <button class="photo-tile" type="button" data-full="@Model.PhotoUrl(photo)" data-alt="Häämuisto" style="--ratio:@photo.Width/@photo.Height">
-            <img src="@Model.ThumbnailUrl(photo)" alt="Häämuisto" loading="lazy" />
-            <span class="photo-tile__hint">Katso</span>
-        </button>
+        <div class="photo-column">
+            @for (var index = column; index < Model.Album.Photos.Count; index += 3)
+            {
+                var photo = Model.Album.Photos[index];
+                <button class="photo-tile" type="button" data-order="@index" data-full="@Model.PhotoUrl(photo)" data-alt="Häämuisto">
+                    <img src="@Model.ThumbnailUrl(photo)" alt="Häämuisto" loading="lazy" />
+                    <span class="photo-tile__hint">Katso</span>
+                </button>
+            }
+        </div>
     }
 </main>
 <div class="lightbox" role="dialog" aria-modal="true" aria-label="Täysikokoinen valokuva" hidden>

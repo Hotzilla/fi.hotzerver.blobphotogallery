@@ -21,9 +21,9 @@
     @foreach (var album in Model.Albums)
     {
         <a class="album-card" asp-page="/Gallery" asp-route-slug="@album.Slug">
-            @if (album.Cover is not null)
+            @if (album.CoverThumbnailName is not null)
             {
-                <img src="@Model.ThumbnailUrl(album.Cover)" alt="" loading="lazy" />
+                <img src="@Model.ThumbnailUrl(album)" alt="" loading="lazy" />
             }
             <span class="album-card__wash"></span>
             <span class="album-card__text"><strong>@album.Name</strong><small>@album.PhotoCount @(album.PhotoCount == 1 ? "muisto" : "muistoa")</small></span>

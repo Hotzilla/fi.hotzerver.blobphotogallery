@@ -7,10 +7,9 @@ namespace BlobPhotoGallery.Pages;
 [ResponseCache(Duration = 604800, Location = ResponseCacheLocation.Client)]
 public sealed class ThumbnailModel(GalleryCatalog catalog) : PageModel
 {
-    public IActionResult OnGet(string name)
+    public IActionResult OnGet(string album, string name)
     {
-        if (Path.GetFileName(name) != name) return BadRequest();
-        var path = catalog.GetThumbnailPath(name);
-        return System.IO.File.Exists(path) ? PhysicalFile(path, "image/jpeg") : NotFound();
+        var path = catalog.GetThumbnailPath(album, name);
+        return path is not null && System.IO.File.Exists(path) ? PhysicalFile(path, "image/jpeg") : NotFound();
     }
 }

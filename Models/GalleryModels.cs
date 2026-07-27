@@ -1,6 +1,6 @@
 namespace BlobPhotoGallery.Models;
 
-public sealed record GallerySummary(string Slug, string Name, GalleryPhoto? Cover, int PhotoCount);
+public sealed record GallerySummary(string Slug, string Name, string? CoverThumbnailName, int PhotoCount);
 
 public sealed record GalleryPhoto(
     string BlobName,
@@ -9,4 +9,4 @@ public sealed record GalleryPhoto(
     int Width,
     int Height);
 
-public sealed record GalleryAlbum(string Slug, string Name, IReadOnlyList<GalleryPhoto> Photos);
+public sealed record GalleryAlbum(string Slug, string Name, string? CoverThumbnailName, IReadOnlyList<GalleryPhoto> Photos);

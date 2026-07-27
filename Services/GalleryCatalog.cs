@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Metadata.Profiles.Exif;
 using SixLabors.ImageSharp.Processing;
+using System.Text.Json;
 
 namespace BlobPhotoGallery.Services;
 
@@ -15,24 +16,32 @@ public sealed class GalleryCatalog
     private readonly GalleryOptions _options;
     private readonly BlobContainerClient _container;
     private readonly IWebHostEnvironment _environment;
+    private readonly ILogger<GalleryCatalog> _logger;
     private readonly ConcurrentDictionary<string, GalleryAlbum> _albums = new(StringComparer.OrdinalIgnoreCase);
 
-    public GalleryCatalog(IOptions<GalleryOptions> options, IWebHostEnvironment environment)
+    public GalleryCatalog(IOptions<GalleryOptions> options, IWebHostEnvironment environment, ILogger<GalleryCatalog> logger)
     {
         _options = options.Value;
         _environment = environment;
+        _logger = logger;
         _container = new BlobContainerClient(CreateContainerUri());
     }
 
     public IReadOnlyList<GallerySummary> Albums => _albums.Values
         .OrderBy(album => album.Name, StringComparer.CurrentCultureIgnoreCase)
-        .Select(album => new GallerySummary(album.Slug, album.Name, album.Photos.FirstOrDefault(), album.Photos.Count))
+        .Select(album => new GallerySummary(album.Slug, album.Name, album.CoverThumbnailName, album.Photos.Count))
         .ToList();
 
     public GalleryAlbum? Find(string slug) => _albums.GetValueOrDefault(slug);
 
-    public string GetThumbnailPath(string thumbnailName) =>
-        Path.Combine(GetCacheRoot(), thumbnailName);
+    public string? GetThumbnailPath(string albumSlug, string thumbnailName)
+    {
+        var album = Find(albumSlug);
+        if (album is null || Path.GetFileName(thumbnailName) != thumbnailName) return null;
+        var isPhoto = album.Photos.Any(photo => photo.ThumbnailName == thumbnailName);
+        if (!isPhoto && album.CoverThumbnailName != thumbnailName) return null;
+        return Path.Combine(GetAlbumCachePath(albumSlug), thumbnailName);
+    }
 
     public Uri GetPhotoUri(string blobName)
     {
@@ -46,10 +55,16 @@ public sealed class GalleryCatalog
     {
         Directory.CreateDirectory(GetCacheRoot());
         var grouped = new Dictionary<string, List<BlobItem>>(StringComparer.OrdinalIgnoreCase);
+        var rootImages = new Dictionary<string, BlobItem>(StringComparer.OrdinalIgnoreCase);
         await foreach (var blob in _container.GetBlobsAsync(BlobTraits.Metadata, cancellationToken: cancellationToken))
         {
             var slash = blob.Name.IndexOf('/');
-            if (slash <= 0 || slash == blob.Name.Length - 1 || !IsJpeg(blob.Name)) continue;
+            if (slash < 0)
+            {
+                if (IsJpeg(blob.Name)) rootImages[blob.Name] = blob;
+                continue;
+            }
+            if (slash == 0 || slash == blob.Name.Length - 1 || blob.Name[(slash + 1)..].Contains('/') || !IsJpeg(blob.Name)) continue;
             var folder = blob.Name[..slash];
             if (!grouped.TryGetValue(folder, out var items)) grouped[folder] = items = [];
             items.Add(blob);
@@ -57,41 +72,91 @@ public sealed class GalleryCatalog
 
         foreach (var (folder, blobs) in grouped)
         {
-            var photos = new List<GalleryPhoto>();
-            foreach (var blob in blobs)
+            var albumCachePath = GetAlbumCachePath(folder);
+            if (Directory.Exists(albumCachePath))
             {
-                try { photos.Add(await CachePhotoAsync(blob, cancellationToken)); }
-                catch (Exception ex) when (ex is InvalidImageContentException or UnknownImageFormatException)
-                {
-                    // Ignore an incorrectly named or damaged image without hiding the rest of the album.
-                }
+                var cachedAlbum = await ReadManifestAsync(albumCachePath, cancellationToken);
+                if (cachedAlbum is not null) _albums[folder] = cachedAlbum;
+                else _logger.LogWarning("Thumbnail cache folder {CachePath} exists without a valid manifest; delete it to regenerate the album.", albumCachePath);
+                continue;
             }
-            photos.Sort((left, right) => left.TakenAt.CompareTo(right.TakenAt));
-            _albums[folder] = new GalleryAlbum(folder, Humanize(folder), photos);
+
+            var temporaryPath = $"{albumCachePath}.tmp-{Guid.NewGuid():N}";
+            Directory.CreateDirectory(temporaryPath);
+            var photos = new List<GalleryPhoto>();
+            try
+            {
+                foreach (var blob in blobs)
+                {
+                    try { photos.Add(await CachePhotoAsync(blob, temporaryPath, cancellationToken)); }
+                    catch (Exception ex) when (ex is InvalidImageContentException or UnknownImageFormatException)
+                    {
+                        // Ignore an incorrectly named or damaged image without hiding the rest of the album.
+                    }
+                }
+                photos.Sort((left, right) => left.TakenAt.CompareTo(right.TakenAt));
+                string? coverName = null;
+                if (rootImages.TryGetValue($"{folder}.jpg", out var cover))
+                    coverName = await CacheCoverAsync(cover, temporaryPath, cancellationToken);
+                var album = new GalleryAlbum(folder, Humanize(folder), coverName, photos);
+                await WriteManifestAsync(temporaryPath, album, cancellationToken);
+                Directory.Move(temporaryPath, albumCachePath);
+                _albums[folder] = album;
+            }
+            catch
+            {
+                Directory.Delete(temporaryPath, recursive: true);
+                throw;
+            }
         }
     }
 
-    private async Task<GalleryPhoto> CachePhotoAsync(BlobItem blob, CancellationToken cancellationToken)
+    private async Task<GalleryPhoto> CachePhotoAsync(BlobItem blob, string albumCachePath, CancellationToken cancellationToken)
     {
         var cacheName = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
             System.Text.Encoding.UTF8.GetBytes($"{blob.Name}:{blob.Properties.ETag}"))) + ".jpg";
-        var path = GetThumbnailPath(cacheName);
+        var path = Path.Combine(albumCachePath, cacheName);
         await using var source = await _container.GetBlobClient(blob.Name).OpenReadAsync(cancellationToken: cancellationToken);
         using var image = await Image.LoadAsync(source, cancellationToken);
         var takenAt = ReadTakenAt(image.Metadata.ExifProfile) ?? blob.Properties.LastModified ?? DateTimeOffset.MinValue;
         var width = image.Width;
         var height = image.Height;
 
-        if (!File.Exists(path))
-        {
-            image.Mutate(context => context.AutoOrient().Resize(new ResizeOptions
-            {
-                Mode = ResizeMode.Max,
-                Size = new Size(_options.ThumbnailWidth, _options.ThumbnailWidth)
-            }));
-            await image.SaveAsJpegAsync(path, cancellationToken);
-        }
+        await SaveThumbnailAsync(image, path, cancellationToken);
         return new GalleryPhoto(blob.Name, cacheName, takenAt, width, height);
+    }
+
+    private async Task<string> CacheCoverAsync(BlobItem blob, string albumCachePath, CancellationToken cancellationToken)
+    {
+        const string cacheName = "cover.jpg";
+        await using var source = await _container.GetBlobClient(blob.Name).OpenReadAsync(cancellationToken: cancellationToken);
+        using var image = await Image.LoadAsync(source, cancellationToken);
+        await SaveThumbnailAsync(image, Path.Combine(albumCachePath, cacheName), cancellationToken);
+        return cacheName;
+    }
+
+    private async Task SaveThumbnailAsync(Image image, string path, CancellationToken cancellationToken)
+    {
+        image.Mutate(context => context.AutoOrient().Resize(new ResizeOptions
+        {
+            Mode = ResizeMode.Max,
+            Size = new Size(_options.ThumbnailWidth, _options.ThumbnailWidth)
+        }));
+        await image.SaveAsJpegAsync(path, cancellationToken);
+    }
+
+    private static async Task<GalleryAlbum?> ReadManifestAsync(string cachePath, CancellationToken cancellationToken)
+    {
+        var path = Path.Combine(cachePath, "album.json");
+        if (!File.Exists(path)) return null;
+        await using var stream = File.OpenRead(path);
+        return await JsonSerializer.DeserializeAsync<GalleryAlbum>(stream, cancellationToken: cancellationToken);
+    }
+
+    private static async Task WriteManifestAsync(string cachePath, GalleryAlbum album, CancellationToken cancellationToken)
+    {
+        await using var stream = File.Create(Path.Combine(cachePath, "album.json"));
+        await JsonSerializer.SerializeAsync(stream, album, cancellationToken: cancellationToken);
     }
 
     private static DateTimeOffset? ReadTakenAt(ExifProfile? profile)
@@ -112,6 +177,9 @@ public sealed class GalleryCatalog
     private string GetCacheRoot() => Path.IsPathRooted(_options.ThumbnailCachePath)
         ? _options.ThumbnailCachePath
         : Path.Combine(_environment.ContentRootPath, _options.ThumbnailCachePath);
+
+    private string GetAlbumCachePath(string albumSlug) =>
+        Path.Combine(GetCacheRoot(), $"album-{Uri.EscapeDataString(albumSlug)}");
 
     private static bool IsJpeg(string name) => name.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase);
     private static string Humanize(string folder) => System.Globalization.CultureInfo.CurrentCulture.TextInfo

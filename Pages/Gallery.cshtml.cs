@@ -15,6 +15,6 @@ public sealed class GalleryModel(GalleryCatalog catalog) : PageModel
         Album = album;
         return Page();
     }
-    public string ThumbnailUrl(GalleryPhoto photo) => Url.Page("/Thumbnail", new { name = photo.ThumbnailName })!;
+    public string ThumbnailUrl(GalleryPhoto photo) => Url.Page("/Thumbnail", new { album = Album.Slug, name = photo.ThumbnailName })!;
     public string PhotoUrl(GalleryPhoto photo) => Url.Page("/Photo", new { album = Album.Slug, name = photo.ThumbnailName })!;
 }

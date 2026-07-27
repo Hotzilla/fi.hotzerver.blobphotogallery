@@ -9,5 +9,5 @@ public sealed class IndexModel(GalleryCatalog catalog) : PageModel
 {
     public IReadOnlyList<GallerySummary> Albums { get; private set; } = [];
     public void OnGet() => Albums = catalog.Albums;
-    public string ThumbnailUrl(GalleryPhoto photo) => Url.Page("/Thumbnail", new { name = photo.ThumbnailName })!;
+    public string ThumbnailUrl(GallerySummary album) => Url.Page("/Thumbnail", new { album = album.Slug, name = album.CoverThumbnailName })!;
 }
