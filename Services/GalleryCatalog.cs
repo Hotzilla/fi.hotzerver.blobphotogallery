@@ -45,7 +45,7 @@ public sealed class GalleryCatalog
             return albums
                 .Select(album => new GallerySummary(
                     album.Slug,
-                    album.Name,
+                    GetDisplayName(album),
                     album.CoverThumbnailName,
                     album.Photos.Count,
                     ReferenceEquals(album, mainAlbum)))
@@ -53,7 +53,11 @@ public sealed class GalleryCatalog
         }
     }
 
-    public GalleryAlbum? Find(string slug) => _albums.GetValueOrDefault(slug);
+    public GalleryAlbum? Find(string slug)
+    {
+        var album = _albums.GetValueOrDefault(slug);
+        return album is null ? null : album with { Name = GetDisplayName(album) };
+    }
 
     public string? GetThumbnailPath(string albumSlug, string thumbnailName)
     {
@@ -203,6 +207,9 @@ public sealed class GalleryCatalog
         Path.Combine(GetCacheRoot(), $"album-{Uri.EscapeDataString(albumSlug)}");
 
     private static bool IsJpeg(string name) => name.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase);
+    private static string GetDisplayName(GalleryAlbum album) => album.Slug.StartsWith("main-", StringComparison.OrdinalIgnoreCase)
+        ? Humanize(album.Slug["main-".Length..])
+        : album.Name;
     private static string Humanize(string folder) => System.Globalization.CultureInfo.CurrentCulture.TextInfo
         .ToTitleCase(Uri.UnescapeDataString(folder).Replace('-', ' ').Replace('_', ' '));
 }
