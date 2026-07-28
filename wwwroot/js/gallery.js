@@ -74,6 +74,60 @@
     }
   }
 
+  const tiles = () => [...gallery.querySelectorAll('[data-full]')]
+    .sort((left, right) => Number(left.dataset.order) - Number(right.dataset.order));
+
+  function createTile(photo) {
+    const tile = document.createElement('button');
+    tile.className = 'photo-tile';
+    tile.type = 'button';
+    tile.dataset.order = photo.order;
+    tile.dataset.full = photo.photoUrl;
+    tile.dataset.alt = 'Häämuisto';
+    tile.style.aspectRatio = `${photo.width} / ${photo.height}`;
+
+    const thumbnail = document.createElement('img');
+    thumbnail.src = photo.thumbnailUrl;
+    thumbnail.alt = 'Häämuisto';
+    thumbnail.loading = 'lazy';
+    thumbnail.decoding = 'async';
+    tile.append(thumbnail);
+
+    const hint = document.createElement('span');
+    hint.className = 'photo-tile__hint';
+    hint.textContent = 'Katso';
+    tile.append(hint);
+    return tile;
+  }
+
+  async function loadNextPage() {
+    if (loading || !hasMore) return;
+    loading = true;
+    loader.hidden = false;
+    try {
+      const separator = gallery.dataset.photosUrl.includes('?') ? '&' : '?';
+      const response = await fetch(`${gallery.dataset.photosUrl}${separator}page=${page}`, {
+        headers: { Accept: 'application/json' }
+      });
+      if (!response.ok) throw new Error(`Gallery request failed with ${response.status}`);
+      const result = await response.json();
+      result.photos.forEach(photo => columns[photo.order % columns.length].append(createTile(photo)));
+      page += 1;
+      hasMore = result.hasMore;
+      loader.hidden = true;
+      sentinel.hidden = !hasMore;
+      if (hasMore && sentinel.getBoundingClientRect().top < window.innerHeight + 800) {
+        setTimeout(loadNextPage);
+      }
+    } catch (error) {
+      loader.textContent = 'Hetkien lataaminen epäonnistui. Päivitä sivu ja yritä uudelleen.';
+      loader.classList.add('is-error');
+      console.error(error);
+    } finally {
+      loading = false;
+    }
+  }
+
   function show(index) {
     const loadedTiles = tiles();
     if (!loadedTiles.length) return;
