@@ -20,7 +20,7 @@ Put production secrets in `appsettings.Production.json`, environment variables, 
 
 The SAS needs only **read** and **list** permissions. Give guests `https://your-host/?key=a-long-random-link-secret`. A successful query stores the key in a secure, HTTP-only cookie so internal navigation and image requests continue to work. Invalid requests return 404 rather than advertising the private gallery.
 
-At startup the application lists blobs, reads EXIF `DateTimeOriginal`, creates local JPEG thumbnails, and sorts each album oldest-first. Startup waits for this work to finish before accepting requests, so the first guest receives a ready gallery. Put an album cover at the container root using the folder name plus `.jpg` (for example, `seremonia.jpg` for the `seremonia/` album). Gallery photos are shown in three equal-width masonry columns while retaining their row-wise chronological order. When a guest opens a photograph, the app validates that it belongs to the album and redirects the browser to the private blob URL carrying the configured SAS. Consequently full-resolution bytes travel from Azure directly to the browser, not through this host.
+Thumbnail generation is an explicit maintenance operation. Run the application with `--generate-thumbnails` to list blobs, read EXIF `DateTimeOriginal`, create local JPEG thumbnails, and sort each album oldest-first. That command exits when the cache is ready and never starts the web server. Normal application startup only reads the existing local manifests and does not connect to Azure to build thumbnails. Put an album cover at the container root using the folder name plus `.jpg` (for example, `seremonia.jpg` for the `seremonia/` album). Gallery photos are shown in three equal-width masonry columns while retaining their row-wise chronological order. When a guest opens a photograph, the app validates that it belongs to the album and redirects the browser to the private blob URL carrying the configured SAS. Consequently full-resolution bytes travel from Azure directly to the browser, not through this host.
 
 Name the featured album folder with a `main-` prefix (for example, `main-h채채p채iv채/`). The first matching folder is moved to the top and highlighted as the main gallery, but the technical `main-` prefix is hidden from guests; all remaining albums keep their normal alphabetical order.
 
@@ -30,7 +30,8 @@ Name the featured album folder with a `main-` prefix (for example, `main-h채채p�
 
 ```bash
 dotnet restore
+dotnet run -- --generate-thumbnails
 dotnet run
 ```
 
-The thumbnail cache must be writable and should be placed on persistent storage in production. Each album is generated once into its own `album-<folder>` cache directory together with an `album.json` manifest. If that directory already exists, startup reads the manifest and does not download or regenerate its thumbnails. After changing album photos or the root cover, manually delete that album's cache directory before restarting the application.
+The thumbnail cache must be writable for the generation command and should be placed on persistent storage in production. Each album is generated once into its own `album-<folder>` cache directory together with an `album.json` manifest. If that directory already exists, the generation command keeps it and does not download or regenerate its thumbnails. After changing album photos or the root cover, manually delete that album's cache directory, run the generation command again, and then restart the web application.

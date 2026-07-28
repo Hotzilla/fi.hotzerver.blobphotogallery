@@ -76,6 +76,25 @@ public sealed class GalleryCatalog
         return new Uri($"{baseUrl}/{escapedPath}{(string.IsNullOrWhiteSpace(sas) ? "" : $"?{sas}")}");
     }
 
+    public async Task LoadCacheAsync(CancellationToken cancellationToken)
+    {
+        _albums.Clear();
+        var cacheRoot = GetCacheRoot();
+        if (!Directory.Exists(cacheRoot))
+        {
+            _logger.LogWarning("Thumbnail cache {CachePath} does not exist. Run the application with --generate-thumbnails first.", cacheRoot);
+            return;
+        }
+
+        foreach (var albumCachePath in Directory.EnumerateDirectories(cacheRoot, "album-*"))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var album = await ReadManifestAsync(albumCachePath, cancellationToken);
+            if (album is not null) _albums[album.Slug] = album;
+            else _logger.LogWarning("Thumbnail cache folder {CachePath} does not contain a valid manifest.", albumCachePath);
+        }
+    }
+
     public async Task RefreshAsync(CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(GetCacheRoot());
