@@ -17,19 +17,19 @@ public sealed class GalleryModel(GalleryCatalog catalog) : PageModel
         Album = album;
         return Page();
     }
-    public IActionResult OnGetPhotos(string slug, int offset = 0)
+    public IActionResult OnGetPhotos(string slug, int page = 0)
     {
         var album = catalog.Find(slug);
         if (album is null) return NotFound();
-        if (offset < 0) return BadRequest();
+        if (page < 0 || page > int.MaxValue / PageSize) return BadRequest();
 
-        var nextOffset = (int)Math.Min((long)offset + PageSize, album.Photos.Count);
+        var start = page * PageSize;
         var photos = album.Photos
-            .Skip(offset)
+            .Skip(start)
             .Take(PageSize)
-            .Select((photo, itemOffset) => new
+            .Select((photo, offset) => new
             {
-                order = offset + itemOffset,
+                order = start + offset,
                 thumbnailUrl = ThumbnailUrl(album, photo),
                 photoUrl = PhotoUrl(album, photo),
                 photo.Width,
@@ -39,8 +39,7 @@ public sealed class GalleryModel(GalleryCatalog catalog) : PageModel
         return new JsonResult(new
         {
             photos,
-            nextOffset,
-            hasMore = nextOffset < album.Photos.Count
+            hasMore = start + PageSize < album.Photos.Count
         });
     }
     public string PhotosUrl() => Url.Page("/Gallery", "Photos", new { slug = Album.Slug })!;
