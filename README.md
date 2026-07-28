@@ -22,7 +22,7 @@ The SAS needs only **read** and **list** permissions. Give guests `https://your-
 
 At startup the application lists blobs, reads EXIF `DateTimeOriginal`, creates local JPEG thumbnails, and sorts each album oldest-first. Put an album cover at the container root using the folder name plus `.jpg` (for example, `seremonia.jpg` for the `seremonia/` album). Gallery photos are shown in three equal-width masonry columns while retaining their row-wise chronological order. When a guest opens a photograph, the app validates that it belongs to the album and redirects the browser to the private blob URL carrying the configured SAS. Consequently full-resolution bytes travel from Azure directly to the browser, not through this host.
 
-Gallery thumbnails are returned in pages of 30. The browser requests the next page shortly before the guest reaches the end of the currently rendered photos, and each thumbnail also uses native lazy image loading.
+Gallery thumbnails are returned in batches of 30 using an increasing photo offset. The browser requests the next batch shortly before the guest reaches the end of the currently rendered photos, and each thumbnail also uses native lazy image loading.
 
 Name the featured album folder with a `main-` prefix (for example, `main-hääpäivä/`). The first matching folder is moved to the top and highlighted as the main gallery, but the technical `main-` prefix is hidden from guests; all remaining albums keep their normal alphabetical order.
 
