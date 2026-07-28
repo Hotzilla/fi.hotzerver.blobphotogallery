@@ -10,21 +10,14 @@
     <div class="flourish" aria-hidden="true">❦</div>
     <p>@Model.Album.Photos.Count @(Model.Album.Photos.Count == 1 ? "kaunis muisto" : "kaunista muistoa")</p>
 </header>
-<main class="photo-grid" data-gallery>
+<main class="photo-grid" data-gallery data-photos-url="@Model.PhotosUrl()">
     @for (var column = 0; column < 3; column++)
     {
-        <div class="photo-column">
-            @for (var index = column; index < Model.Album.Photos.Count; index += 3)
-            {
-                var photo = Model.Album.Photos[index];
-                <button class="photo-tile" type="button" data-order="@index" data-full="@Model.PhotoUrl(photo)" data-alt="Häämuisto">
-                    <img src="@Model.ThumbnailUrl(photo)" alt="Häämuisto" loading="lazy" />
-                    <span class="photo-tile__hint">Katso</span>
-                </button>
-            }
-        </div>
+        <div class="photo-column" data-column="@column"></div>
     }
 </main>
+<div class="gallery-loader" data-gallery-loader role="status">Hetkiä ladataan…</div>
+<div class="gallery-sentinel" data-gallery-sentinel aria-hidden="true"></div>
 <div class="lightbox" role="dialog" aria-modal="true" aria-label="Täysikokoinen valokuva" hidden>
     <button class="lightbox__close" aria-label="Sulje valokuva">×</button>
     <button class="lightbox__previous" aria-label="Edellinen valokuva">‹</button>
